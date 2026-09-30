@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sacred Geometry // Retro Glitch</title>
+<style>
+  html, body {
+    margin: 0; padding: 0; overflow: hidden;
+    background: #000; font-family: monospace;
+    cursor: crosshair;
+  }
+  #info {
+    position: absolute; top: 12px; left: 12px;
+    color: #0f0; font-size: 12px;
+    text-shadow: 0 0 6px #0f0;
+    pointer-events: none; z-index: 10; line-height: 1.7;
+    letter-spacing: 0.5px;
+  }
+  #info b { color: #ff0; text-shadow: 0 0 8px #ff0; }
+  #info .dim { color: #0a0; opacity: 0.7; }
+  #overlay {
+    position: absolute; inset: 0;
+    background: radial-gradient(circle, transparent 42%, rgba(0,0,0,0.65) 100%);
+    pointer-events: none; z-index: 5;
+    transition: background 0.3s;
+  }
+  #mode {
+    position: absolute; top: 12px; right: 16px;
+    color: #f0f; font-size: 13px;
+    text-shadow: 0 0 8px #f0f;
+    pointer-events: none; z-index: 10;
+    letter-spacing: 2px;
+  }
+</style>
+</head>
+<body>
+<div id="info">
+  <b>МЫШЬ</b> — вращать геометрию<br>
+  <b>W / S</b> — блюр <span class="dim">(помехи)</span><br>
+  <b>A / D</b> — датамош <span class="dim">(пиксели)</span><br>
+  <b>1</b> — тёмный неон &nbsp;&nbsp; <b>2</b> — кислота<br>
+  <b>SHIFT</b> — турбо-глитч &nbsp;&nbsp; <b>ЛКМ</b> — импульс
+</div>
+<div id="mode">[1] DARK NEON</div>
+<div id="overlay"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+// ---------------------------------------------------------------
+// RENDERER
+// ---------------------------------------------------------------
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+document.body.appendChild(renderer.domElement);
+console.log('WebGL check:', !!renderer.getContext());
+
+// ---------------------------------------------------------------
+// SCENE + CAMERA
+// ---------------------------------------------------------------
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x000308);
+scene.fog = new THREE.FogExp2(0x000308, 0.035);
+
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 200);
+camera.position.set(0, 0, 14);
+
+// ---------------------------------------------------------------
+// LIGHTS
+// ---------------------------------------------------------------
+const ambient = new THREE.AmbientLight(0x223355, 0.6);
+scene.add(ambient);
+
+const lightA = new THREE.PointLight(0xff1188, 3.0, 40, 1.8);
+lightA.position.set(8, 8, 8);
+scene.add(lightA);
+
+const lightB = new THREE.PointLight(0x00ccff, 3.0, 40, 1.8);
+lightB.position.set(-8, -6, 6);
+scene.add(lightB);
+
+const lightC = new THREE.PointLight(0xaa00ff, 2.0, 30, 2.0);
+lightC.position.set(0, 0, -10);
+scene.add(lightC);
+
+// ---------------------------------------------------------------
+// SACRED GEOMETRY — main group
+// ---------------------------------------------------------------
+const sacred = new THREE.Group();
+scene.add(sacred);
+
+// --- Materials (will be updated by theme) ---
+const neonA = new THREE.MeshBasicMaterial({
+  color: 0xff1188, wireframe: true, transparent: true, opacity: 0.9
+});
+const neonB = new THREE.MeshBasicMaterial({
+  color: 0x00ffff, wireframe: true, transparent: true, opacity: 0.9
+});
+const neonC = new THREE.MeshBasicMaterial({
+  color: 0xffaa00, wireframe: true, transparent: true, opacity: 0.7
+});
+
+// --- Merkaba (two interlocked tetrahedrons) ---
+const tetGeo = new THREE.TetrahedronGeometry(3.2, 0);
+
+const tet1 = new THREE.Mesh(tetGeo, neonA);
+sacred.add(tet1);
+
+const tet2 = new THREE.Mesh(tetGeo, neonB);
+tet2.rotation.x = Math.PI;
+tet2.rotation.z = Math.PI / 3;
+sacred.add(tet2);
+
+// --- Icosahedron shell around ---
+const ico1 = new THREE.Mesh(new THREE.IcosahedronGeometry(4.6, 1), neonC);
+sacred.add(ico1);
+
+const ico2 = new THREE.Mesh(new THREE.IcosahedronGeometry(5.4, 0), neonB);
+ico2.material = neonB.clone();
+ico2.material.opacity = 0.35;
+sacred.add(ico2);
+
+// --- Sacred rings (torus) on different axes ---
+function makeRing(radius, tube, color, rot) {
+  const mat = new THREE.MeshBasicMaterial({
+    color, wireframe: true, transparent: true, opacity: 0.55
+  });
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(radius, tube, 6, 48), mat);
+  ring.rotation.set(rot.x, rot.y, rot.z);
+  return ring;
+}
+
+const ring1 = makeRing(6.2, 0.05, 0x00ffff, { x: Math.PI / 2, y: 0, z: 0 });
+const ring2 = makeRing(6.8, 0.05, 0xff1188, { x: 0, y: 0, z: 0 });
+const ring3 = makeRing(7.4, 0.05, 0xffaa00, { x: Math.PI / 3, y: Math.PI / 4, z: 0 });
+sacred.add(ring1, ring2, ring3);
+
+// --- Outer points (vertices of dodecahedron as glowing dots) ---
+const dodeGeo = new THREE.DodecahedronGeometry(8.5, 0);
+const dotsMat = new THREE.PointsMaterial({
+  color: 0xffffff, size: 0.12, transparent: true, opacity: 0.9,
+  blending: THREE.AdditiveBlending, depthWrite: false
+});
+const dots = new THREE.Points(dodeGeo, dotsMat);
+sacred.add(dots);
+
+// --- Inner star lines (custom) ---
+const starGeo = new THREE.BufferGeometry();
+const starPts = [];
+const N = 60;
+for (let i = 0; i < N; i++) {
+  const a = (i / N) * Math.PI * 2;
+  const r = 2.2;
+  starPts.push(Math.cos(a) * r, Math.sin(a * 3) * r * 0.4, Math.sin(a) * r);
+}
+starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPts, 3));
+const starLine = new THREE.LineLoop(
+  starGeo,
+  new THREE.LineBasicMaterial({ color: 0xff00ff, transparent: true, opacity: 0.8 })
+);
+sacred.add(starLine);
+
+// --- Background particle field (stars) ---
+const starfieldGeo = new THREE.BufferGeometry();
+const starPositions = [];
+for (let i = 0; i < 800; i++) {
+  const r = 30 + Math.random() * 40;
+  const theta = Math.random() * Math.PI * 2;
+  const phi = Math.acos(2 * Math.random() - 1);
+  starPositions.push(
+    r * Math.sin(phi) * Math.cos(theta),
+    r * Math.sin(phi) * Math.sin(theta),
+    r * Math.cos(phi)
+  );
+}
+starfieldGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPositions, 3));
+const starfield = new THREE.Points(
+  starfieldGeo,
+  new THREE.PointsMaterial({
+    color: 0x88aaff, size: 0.25, transparent: true, opacity: 0.6,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  })
+);
+scene.add(starfield);
+
+// ---------------------------------------------------------------
+// THEMES
+// ---------------------------------------------------------------
+const themes = {
+  neon: {
+    bg: 0x000400,
+    fog: 0x000400,
+    fogDensity: 0.035,
+    ambient: { color: 0x0a3311, intensity: 0.7 },
+    lights: [
+      { color: 0x00ff44, intensity: 3.0 },   // ярко-зелёный
+      { color: 0x00cc22, intensity: 3.0 },   // изумрудный
+      { color: 0x88ff00, intensity: 2.0 }    // кислотно-лаймовый
+    ],
+    wireA: 0x00ff44,      // меркаба 1
+    wireB: 0x22ff88,      // меркаба 2 + икосаэдр 2
+    wireC: 0x88ff00,      // внешний икосаэдр
+    ring1: 0x00ff44,
+    ring2: 0x22ff88,
+    ring3: 0x88ff00,
+    starLine: 0x00ffaa,
+    dots: 0xaaffaa,
+    starfield: 0x33ff66,
+    overlay: 'radial-gradient(circle, transparent 42%, rgba(0,20,0,0.75) 100%)',
+    label: '[1] GREEN MATRIX'
+  },
+  acid: {
+    bg: 0x1a0033,
+    fog: 0x2a0044,
+    fogDensity: 0.025,
+    ambient: { color: 0x8844aa, intensity: 1.2 },
+    lights: [
+      { color: 0x00ff88, intensity: 4.0 },
+      { color: 0xff00ff, intensity: 4.0 },
+      { color: 0xffff00, intensity: 3.0 }
+    ],
+    wireA: 0x00ff88,
+    wireB: 0xff00ff,
+    wireC: 0xffff00,
+    ring1: 0xff00ff,
+    ring2: 0x00ff88,
+    ring3: 0xffff00,
+    starLine: 0x00ffff,
+    dots: 0xffff00,
+    starfield: 0xff88ff,
+    overlay: 'radial-gradient(circle, transparent 55%, rgba(120,0,180,0.5) 100%)',
+    label: '[2] ACID GLITCH'
+  }
+};
+
+let currentTheme = 'neon';
+
+function applyTheme(name) {
+  const t = themes[name];
+  if (!t) return;
+  currentTheme = name;
+
+  scene.background.setHex(t.bg);
+  scene.fog.color.setHex(t.fog);
+  scene.fog.density = t.fogDensity;
+
+  ambient.color.setHex(t.ambient.color);
+  ambient.intensity = t.ambient.intensity;
+
+  lightA.color.setHex(t.lights[0].color); lightA.intensity = t.lights[0].intensity;
+  lightB.color.setHex(t.lights[1].color); lightB.intensity = t.lights[1].intensity;
+  lightC.color.setHex(t.lights[2].color); lightC.intensity = t.lights[2].intensity;
+
+  tet1.material.color.setHex(t.wireA);
+  tet2.material.color.setHex(t.wireB);
+  ico1.material.color.setHex(t.wireC);
+  ico2.material.color.setHex(t.wireB);
+
+  ring1.material.color.setHex(t.ring1);
+  ring2.material.color.setHex(t.ring2);
+  ring3.material.color.setHex(t.ring3);
+
+  starLine.material.color.setHex(t.starLine);
+  dots.material.color.setHex(t.dots);
+  starfield.material.color.setHex(t.starfield);
+
+  document.getElementById('overlay').style.background = t.overlay;
+  document.getElementById('mode').textContent = t.label;
+  document.getElementById('mode').style.color = 
+    name === 'acid' ? '#0f8' : '#f0f';
+  document.getElementById('mode').style.textShadow = 
+    name === 'acid' ? '0 0 8px #0f8' : '0 0 8px #f0f';
+}
+
+applyTheme('neon');
+
+// ---------------------------------------------------------------
+// INPUT
+// ---------------------------------------------------------------
+const keys = {};
+const mouse = { x: 0, y: 0, nx: 0, ny: 0, down: false };
+
+addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'Digit1') applyTheme('neon');
+  if (e.code === 'Digit2') applyTheme('acid');
+});
+addEventListener('keyup', e => { keys[e.code] = false; });
+
+addEventListener('mousemove', e => {
+  mouse.x = e.clientX; mouse.y = e.clientY;
+  mouse.nx = (e.clientX / innerWidth) * 2 - 1;
+  mouse.ny = (e.clientY / innerHeight) * 2 - 1;
+});
+
+addEventListener('mousedown', () => { mouse.down = true; });
+addEventListener('mouseup',   () => { mouse.down = false; });
+
+// ---------------------------------------------------------------
+// PARAMETERS (controlled by keys)
+// ---------------------------------------------------------------
+let blurAmount   = 0.0;   // W/S
+let datamoshAmt  = 0.0;   // A/D
+let impulse      = 0.0;   // mouse click pulse
+
+const BLUR_STEP = 0.02;
+const MOSH_STEP = 0.02;
+
+// ---------------------------------------------------------------
+// GLITCH POST-PROCESS SHADER
+// ---------------------------------------------------------------
+const glitchScene = new THREE.Scene();
+const glitchCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+const glitchUniforms = {
+  tDiffuse:    { value: null },
+  uTime:       { value: 0 },
+  uIntensity:  { value: 0.0 },
+  uBlur:       { value: 0.0 },
+  uDatamosh:   { value: 0.0 },
+  uResolution: { value: new THREE.Vector2(innerWidth, innerHeight) }
+};
+
+const glitchMat = new THREE.ShaderMaterial({
+  uniforms: glitchUniforms,
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float uTime;
+    uniform float uIntensity;
+    uniform float uBlur;
+    uniform float uDatamosh;
+    uniform vec2 uResolution;
+    varying vec2 vUv;
+
+    float hash(vec2 p) {
+      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+    }
+
+    // 9-tap box blur-ish
+    vec3 blurSample(vec2 uv, float amt) {
+      if (amt < 0.001) return texture2D(tDiffuse, uv).rgb;
+      vec2 texel = 1.0 / uResolution;
+      float r = amt * 6.0;
+      vec3 sum = vec3(0.0);
+      float total = 0.0;
+      for (int i = -2; i <= 2; i++) {
+        for (int j = -2; j <= 2; j++) {
+          vec2 off = vec2(float(i), float(j)) * texel * r;
+          float w = 1.0 / (1.0 + length(vec2(float(i), float(j))));
+          sum += texture2D(tDiffuse, uv + off).rgb * w;
+          total += w;
+        }
+      }
+      return sum / total;
+    }
+
+    void main() {
+      vec2 uv = vUv;
+      float intensity = uIntensity;
+
+      // ---- Datamosh: block displacement of UV ----
+      if (uDatamosh > 0.001) {
+        vec2 blockUv = floor(uv * vec2(40.0, 30.0)) / vec2(40.0, 30.0);
+        float blockRand = hash(blockUv + floor(uTime * 6.0));
+        if (blockRand > 1.0 - uDatamosh * 0.7) {
+          vec2 shift = (vec2(hash(blockUv), hash(blockUv.yx)) - 0.5) * uDatamosh * 0.15;
+          uv += shift;
+        }
+      }
+
+      // ---- VHS tracking lines ----
+      float lineNoise = hash(vec2(floor(uv.y * uResolution.y * 0.5), floor(uTime * 25.0)));
+      float displaced = step(0.85 - intensity * 0.3, lineNoise) * intensity * 0.05;
+      uv.x += displaced * (hash(vec2(uv.y, uTime)) - 0.5) * 4.0;
+
+      // ---- Global wobble ----
+      uv.x += sin(uv.y * 80.0 + uTime * 10.0) * intensity * 0.003;
+      uv.y += cos(uv.x * 60.0 + uTime * 8.0) * intensity * 0.002;
+
+      // ---- Sample with blur ----
+      vec3 col = blurSample(uv, uBlur);
+
+      // ---- Chromatic aberration ----
+      float shift = 0.004 * intensity * 2.0 + uBlur * 0.01;
+      float r = blurSample(uv + vec2(shift, 0.0), uBlur).r;
+      float b = blurSample(uv - vec2(shift, 0.0), uBlur).b;
+      col.r = mix(col.r, r, 0.7);
+      col.b = mix(col.b, b, 0.7);
+
+      // ---- RGB grain ----
+      float grain = hash(uv * uResolution + uTime * 60.0);
+      col += (grain - 0.5) * intensity * 0.15;
+      col += (grain - 0.5) * uDatamosh * 0.3;
+
+      // ---- Scanlines ----
+      col *= 1.0 - 0.08 * intensity * sin(uv.y * uResolution.y * 1.5);
+
+      // ---- Color swap slice ----
+      float blockSlice = step(0.995 - intensity * 0.1, hash(vec2(floor(uTime * 12.0), 0.0)));
+      if (blockSlice > 0.5) col.rgb = col.gbr;
+
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `
+});
+
+const glitchQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), glitchMat);
+glitchScene.add(glitchQuad);
+
+const rt = new THREE.WebGLRenderTarget(innerWidth, innerHeight, {
+  minFilter: THREE.LinearFilter,
+  magFilter: THREE.LinearFilter
+});
+
+// ---------------------------------------------------------------
+// MAIN LOOP
+// ---------------------------------------------------------------
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.1);
+  const t = performance.now() * 0.001;
+
+  // --- WASD effect controls ---
+  if (keys['KeyW']) blurAmount = Math.min(1.0, blurAmount + BLUR_STEP);
+  if (keys['KeyS']) blurAmount = Math.max(0.0, blurAmount - BLUR_STEP);
+  if (keys['KeyD']) datamoshAmt = Math.min(1.0, datamoshAmt + MOSH_STEP);
+  if (keys['KeyA']) datamoshAmt = Math.max(0.0, datamoshAmt - MOSH_STEP);
+
+  // --- Impulse from click ---
+  if (mouse.down) impulse = Math.min(1.0, impulse + dt * 4.0);
+  impulse *= Math.pow(0.05, dt);
+
+  // --- Rotate geometry based on mouse position ---
+  const targetRotY = mouse.nx * Math.PI * 1.2;
+  const targetRotX = mouse.ny * Math.PI * 0.6;
+  sacred.rotation.y += (targetRotY - sacred.rotation.y) * Math.min(1, dt * 3.0);
+  sacred.rotation.x += (targetRotX - sacred.rotation.x) * Math.min(1, dt * 3.0);
+
+  // --- Idle internal motion ---
+  tet1.rotation.x += dt * 0.3;
+  tet1.rotation.y += dt * 0.4;
+  tet2.rotation.x -= dt * 0.25;
+  tet2.rotation.y -= dt * 0.35;
+  ico1.rotation.y += dt * 0.15;
+  ico1.rotation.z += dt * 0.1;
+  ico2.rotation.y -= dt * 0.2;
+  ring1.rotation.z += dt * 0.4;
+  ring2.rotation.x += dt * 0.3;
+  ring3.rotation.y += dt * 0.5;
+  starLine.rotation.y += dt * 0.6;
+  starLine.rotation.z -= dt * 0.4;
+  dots.rotation.y -= dt * 0.05;
+
+  // --- Lights orbit ---
+  lightA.position.set(Math.cos(t * 0.7) * 9, Math.sin(t * 0.5) * 6, Math.sin(t * 0.7) * 9);
+  lightB.position.set(Math.cos(t * 0.4 + 2) * 10, Math.cos(t * 0.6) * 5, Math.sin(t * 0.4 + 2) * 10);
+  lightC.position.set(Math.cos(t * 0.9) * 5, Math.sin(t * 0.8) * 8, Math.cos(t * 0.5) * 7);
+
+  // --- Starfield slow rotation ---
+  starfield.rotation.y += dt * 0.02;
+  starfield.rotation.x += dt * 0.01;
+
+  // --- Glitch intensity ---
+  const mouseFactor = Math.abs(mouse.nx) * 0.5 + Math.abs(mouse.ny) * 0.4;
+  const boost = (keys['ShiftLeft'] || keys['ShiftRight']) ? 1.8 : 1.0;
+  const targetIntensity = (mouseFactor * boost * 0.9) + impulse * 1.2;
+  glitchUniforms.uIntensity.value += (targetIntensity - glitchUniforms.uIntensity.value) * 0.1;
+  glitchUniforms.uTime.value = t;
+  glitchUniforms.uBlur.value = blurAmount;
+  glitchUniforms.uDatamosh.value = datamoshAmt;
+
+  // --- Render scene to texture ---
+  renderer.setRenderTarget(rt);
+  renderer.render(scene, camera);
+
+  // --- Render glitch to screen ---
+  glitchUniforms.tDiffuse.value = rt.texture;
+  renderer.setRenderTarget(null);
+  renderer.render(glitchScene, glitchCam);
+}
+
+animate();
+
+// ---------------------------------------------------------------
+// RESIZE
+// ---------------------------------------------------------------
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  rt.setSize(innerWidth, innerHeight);
+  glitchUniforms.uResolution.value.set(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
